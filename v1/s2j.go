@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"encoding/json"
 	"reflect"
 	"sync"
 
@@ -11,7 +10,6 @@ import (
 // Marshal return a string.
 func Marshal(objects interface{}, auth interface{}) (v []map[string]interface{}, err error) {
 	var (
-		vb []byte
 		wg sync.WaitGroup
 		vm []map[string]interface{}
 		ok bool
@@ -20,7 +18,7 @@ func Marshal(objects interface{}, auth interface{}) (v []map[string]interface{},
 	vm = make([]map[string]interface{}, 0)
 
 	if _, ok = auth.(s2j.AuthType); !ok {
-		return "", s2j.InvalidAuthType{}
+		return nil, s2j.InvalidAuthType{}
 	}
 
 	switch reflect.TypeOf(objects).Kind() {
@@ -49,7 +47,7 @@ func Marshal(objects interface{}, auth interface{}) (v []map[string]interface{},
 		}
 		wg.Wait()
 	default:
-		return "", s2j.InvalidObjects{Msg: "objects must be a array or slice"}
+		return nil, s2j.InvalidObjects{Msg: "objects must be a array or slice"}
 	}
 
 	return vm, nil
