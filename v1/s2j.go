@@ -9,7 +9,7 @@ import (
 )
 
 // Marshal return a string.
-func Marshal(objects interface{}, auth interface{}) (v string, err error) {
+func Marshal(objects interface{}, auth interface{}) (v []map[string]interface{}, err error) {
 	var (
 		vb []byte
 		wg sync.WaitGroup
@@ -52,9 +52,5 @@ func Marshal(objects interface{}, auth interface{}) (v string, err error) {
 		return "", s2j.InvalidObjects{Msg: "objects must be a array or slice"}
 	}
 
-	if vb, err = json.Marshal(vm); err != nil {
-		return "", err
-	}
-
-	return string(vb), nil
+	return vm, nil
 }
