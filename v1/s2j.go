@@ -13,6 +13,7 @@ func Marshal(objects interface{}, auth interface{}) (v []map[string]interface{},
 		wg sync.WaitGroup
 		vm []map[string]interface{}
 		ok bool
+		l  sync.Mutex
 	)
 
 	vm = make([]map[string]interface{}, 0)
@@ -42,7 +43,9 @@ func Marshal(objects interface{}, auth interface{}) (v []map[string]interface{},
 						_o[objectRef.Field(i).Tag.Get("json")] = object.Field(i).Interface()
 					}
 				}
+				l.Lock()
 				vm = append(vm, _o)
+				l.Unlock()
 			}(object)
 		}
 		wg.Wait()
