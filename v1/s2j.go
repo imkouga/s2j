@@ -32,6 +32,9 @@ func Marshal(objects interface{}, auth interface{}) (v []map[string]interface{},
 			wg.Add(1)
 			go func(object reflect.Value) {
 				defer wg.Done()
+				if object.Kind() == reflect.Ptr {
+					object = object.Elem()
+				}
 				objectRef := object.Type()
 				_o := make(map[string]interface{})
 				for i := 0; i < object.NumField(); i++ {
@@ -39,8 +42,6 @@ func Marshal(objects interface{}, auth interface{}) (v []map[string]interface{},
 						if authMap[objectRef.Field(i).Name] {
 							_o[objectRef.Field(i).Tag.Get("json")] = object.Field(i).Interface()
 						}
-					} else {
-						_o[objectRef.Field(i).Tag.Get("json")] = object.Field(i).Interface()
 					}
 				}
 				l.Lock()
