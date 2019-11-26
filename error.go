@@ -1,9 +1,15 @@
 package s2j
 
-type InvalidAuthType struct{}
+type InvalidAuthType struct {
+	Msg string
+}
 
-func (InvalidAuthType) Error() string {
-	return "invalid auth type."
+func (i InvalidAuthType) Error() string {
+	if i.Msg == "" {
+		return "invalid auth type."
+	}
+
+	return i.Msg
 }
 
 type InvalidObjects struct {
