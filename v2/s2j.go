@@ -35,7 +35,9 @@ func Marshal(objects interface{}, auth s2j.AuthType) (v interface{}, err error) 
 				s2m, err := m(values.Index(i), authMap, "")
 				log.Println(err)
 				// vs = append(vs, s2m)
-				vs[i] = s2m
+				if s2m != nil {
+					vs[i] = s2m
+				}
 			}(i)
 		}
 		wg.Wait()
@@ -76,17 +78,23 @@ func m(object reflect.Value, auth map[string]bool, preTag string) (v map[string]
 
 			switch field.Kind() {
 			case reflect.Array, reflect.Slice:
-				childValues := reflect.ValueOf(field)
-				childLen := childValues.Len()
-				vv := make([]map[string]interface{}, 0, childLen)
-				for ii := 0; ii < childLen; i++ {
-					s2m, err := m(childValues.Index(ii), auth, tagKey)
+				childLen := field.Len()
+				vv := make([]map[string]interface{}, childLen, childLen)
+				isNull := true
+				for ii := 0; ii < childLen; ii++ {
+					s2m, err := m(field.Index(ii), auth, tagKey)
 					if err != nil {
 						return nil, err
 					}
-					vv[ii] = s2m
+					if s2m != nil && len(s2m) != 0 {
+						log.Printf("not nil %v", s2m)
+						isNull = false
+						vv[ii] = s2m
+					}
 				}
-				v[tag] = vv
+				if !isNull {
+					v[tag] = vv
+				}
 
 			case reflect.Bool:
 				fallthrough
@@ -104,18 +112,24 @@ func m(object reflect.Value, auth map[string]bool, preTag string) (v map[string]
 			case reflect.Struct:
 				switch field.Interface().(type) {
 				case time.Time, *time.Time:
-					v[tag] = field.Interface()
+					if _, found := auth[tagKey]; found && auth[tagKey] {
+						v[tag] = field.Interface()
+					}
 
 				default:
 					s2m, err := m(field, auth, tagKey)
 					if err != nil {
 						return nil, err
 					}
-					v[tag] = s2m
+					if s2m != nil && len(s2m) != 0 {
+						v[tag] = s2m
+					}
 				}
 
 			default:
-				v[tag] = nil
+				if _, found := auth[tagKey]; found && auth[tagKey] {
+					v[tag] = nil
+				}
 			}
 		}
 

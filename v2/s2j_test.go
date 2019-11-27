@@ -22,7 +22,7 @@ func (test11Auth) AuthName() string {
 type test1 struct {
 	A int64      `json:"a"`
 	B string     `json:"b"`
-	C *test11    `json:"c"`
+	C []*test11  `json:"c"`
 	D test11     `json:"d"`
 	E *time.Time `json:"e"`
 }
@@ -44,8 +44,8 @@ func TestAuth(t *testing.T) {
 		A: true,
 		B: true,
 		C: &test11Auth{
-			A: true,
-			B: true,
+			A: false,
+			B: false,
 		},
 		D: &test11Auth{
 			A: true,
@@ -59,10 +59,10 @@ func TestAuth(t *testing.T) {
 	data := &test1{
 		A: 1,
 		B: "",
-		C: &test11{
+		C: []*test11{&test11{
 			A: 3,
 			B: "dfsg",
-		},
+		}},
 		D: test11{
 			A: 5,
 			B: "ggg",

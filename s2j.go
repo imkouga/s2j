@@ -12,7 +12,7 @@ type S2J interface {
 	ModelName() string
 }
 
-func ParseAuth(auth interface{}) (map[string]bool , error){
+func ParseAuth(auth interface{}) (map[string]bool, error) {
 	authOfValue := reflect.ValueOf(auth)
 	authOfType := reflect.TypeOf(auth)
 	authMap := make(map[string]bool)
