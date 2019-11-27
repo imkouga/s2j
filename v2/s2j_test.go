@@ -42,9 +42,9 @@ func TestAuth(t *testing.T) {
 
 	auth := &test1Auth{
 		A: true,
-		B: false,
+		B: true,
 		C: &test11Auth{
-			A: false,
+			A: true,
 			B: true,
 		},
 		D: &test11Auth{
@@ -54,11 +54,11 @@ func TestAuth(t *testing.T) {
 		E: true,
 	}
 
-	now := time.Now()
+	// now := time.Now()
 
 	data := &test1{
 		A: 1,
-		B: "dfs",
+		B: "",
 		C: &test11{
 			A: 3,
 			B: "dfsg",
@@ -67,7 +67,7 @@ func TestAuth(t *testing.T) {
 			A: 5,
 			B: "ggg",
 		},
-		E: &now,
+		E: nil,
 	}
 
 	datas := make([]*test1, 0, 1)

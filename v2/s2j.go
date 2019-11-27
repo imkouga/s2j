@@ -115,9 +115,7 @@ func m(object reflect.Value, auth map[string]bool, preTag string) (v map[string]
 				}
 
 			default:
-				msg := fmt.Sprintf("结构体字段类型必须是基本类型或结构体或者数组或者切片, 其类型 ID 为%d", field.Kind())
-				return nil, s2j.InvalidObjects{Msg: msg}
-
+				v[tag] = nil
 			}
 		}
 
