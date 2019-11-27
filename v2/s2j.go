@@ -3,6 +3,7 @@ package v2
 import (
 	"fmt"
 	"log"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -23,6 +24,8 @@ func Marshal(objects interface{}, auth s2j.AuthType) (v interface{}, err error) 
 		values = values.Elem()
 	}
 
+	log.SetOutput(os.Stdout)
+
 	switch values.Kind() {
 	case reflect.Slice, reflect.Array:
 		var wg sync.WaitGroup
@@ -33,7 +36,11 @@ func Marshal(objects interface{}, auth s2j.AuthType) (v interface{}, err error) 
 			go func(i int) {
 				defer wg.Done()
 				s2m, err := m(values.Index(i), authMap, "")
-				log.Println(err)
+				if err != nil {
+					log.Printf("数据鉴权出错。错误原因:%s", err.Error())
+
+					return
+				}
 				// vs = append(vs, s2m)
 				if s2m != nil && len(s2m) != 0 {
 					vs[i] = s2m
