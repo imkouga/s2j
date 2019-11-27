@@ -30,7 +30,7 @@ func Marshal(objects interface{}, auth s2j.AuthType) (v interface{}, err error) 
 	case reflect.Slice, reflect.Array:
 		var wg sync.WaitGroup
 		nums := values.Len()
-		vs := make([]map[string]interface{}, nums, nums)
+		vs := make([]map[string]interface{}, 0, nums)
 		wg.Add(nums)
 		for i := 0; i < nums; i++ {
 			go func(i int) {
@@ -41,9 +41,8 @@ func Marshal(objects interface{}, auth s2j.AuthType) (v interface{}, err error) 
 
 					return
 				}
-				// vs = append(vs, s2m)
 				if s2m != nil && len(s2m) != 0 {
-					vs[i] = s2m
+					vs = append(vs, s2m)
 				}
 			}(i)
 		}
@@ -86,7 +85,7 @@ func m(object reflect.Value, auth map[string]bool, preTag string) (v map[string]
 			switch field.Kind() {
 			case reflect.Array, reflect.Slice:
 				childLen := field.Len()
-				vv := make([]map[string]interface{}, childLen, childLen)
+				vv := make([]map[string]interface{}, 0, childLen)
 				isNull := true
 				for ii := 0; ii < childLen; ii++ {
 					s2m, err := m(field.Index(ii), auth, tagKey)
@@ -95,7 +94,7 @@ func m(object reflect.Value, auth map[string]bool, preTag string) (v map[string]
 					}
 					if s2m != nil && len(s2m) != 0 {
 						isNull = false
-						vv[ii] = s2m
+						vv = append(vv, s2m)
 					}
 				}
 				if !isNull {
