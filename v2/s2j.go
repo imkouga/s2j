@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/imkouga/s2j"
 )
@@ -101,11 +102,17 @@ func m(object reflect.Value, auth map[string]bool, preTag string) (v map[string]
 				}
 
 			case reflect.Struct:
-				s2m, err := m(field, auth, tagKey)
-				if err != nil {
-					return nil, err
+				switch field.Interface().(type) {
+				case time.Time, *time.Time:
+					v[tag] = field.Interface()
+
+				default:
+					s2m, err := m(field, auth, tagKey)
+					if err != nil {
+						return nil, err
+					}
+					v[tag] = s2m
 				}
-				v[tag] = s2m
 
 			default:
 				msg := fmt.Sprintf("结构体字段类型必须是基本类型或结构体或者数组或者切片, 其类型 ID 为%d", field.Kind())

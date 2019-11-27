@@ -3,6 +3,7 @@ package v2
 import (
 	"encoding/json"
 	"testing"
+	"time"
 )
 
 type test11 struct {
@@ -19,17 +20,18 @@ func (test11Auth) AuthName() string {
 }
 
 type test1 struct {
-	A int64   `json:"a"`
-	B string  `json:"b"`
-	C *test11 `json:"c"`
-	D test11  `json:"d"`
+	A int64      `json:"a"`
+	B string     `json:"b"`
+	C *test11    `json:"c"`
+	D test11     `json:"d"`
+	E *time.Time `json:"e"`
 }
 type test1Auth struct {
 	A bool        `json:"a"`
 	B bool        `json:"b"`
 	C *test11Auth `json:"c"`
 	D *test11Auth `json:"d"`
-	E test11Auth  `json:"e"`
+	E bool        `json:"e"`
 }
 
 func (test1Auth) AuthName() string {
@@ -49,11 +51,10 @@ func TestAuth(t *testing.T) {
 			A: true,
 			B: false,
 		},
-		E: test11Auth{
-			A: true,
-			B: true,
-		},
+		E: true,
 	}
+
+	now := time.Now()
 
 	data := &test1{
 		A: 1,
@@ -66,6 +67,7 @@ func TestAuth(t *testing.T) {
 			A: 5,
 			B: "ggg",
 		},
+		E: &now,
 	}
 
 	datas := make([]*test1, 0, 1)
@@ -92,10 +94,7 @@ func TestBuildAuth(t *testing.T) {
 			A: true,
 			B: true,
 		},
-		E: test11Auth{
-			A: true,
-			B: true,
-		},
+		E: true,
 	}
 
 	authMap, err := buildAuth(auth)
