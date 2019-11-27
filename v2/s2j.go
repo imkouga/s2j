@@ -94,7 +94,6 @@ func m(object reflect.Value, auth map[string]bool, preTag string) (v map[string]
 						return nil, err
 					}
 					if s2m != nil && len(s2m) != 0 {
-						log.Printf("not nil %v", s2m)
 						isNull = false
 						vv[ii] = s2m
 					}
