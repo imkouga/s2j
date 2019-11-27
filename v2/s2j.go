@@ -26,16 +26,16 @@ func Marshal(objects interface{}, auth s2j.AuthType) (v interface{}, err error) 
 	switch values.Kind() {
 	case reflect.Slice, reflect.Array:
 		var wg sync.WaitGroup
-		len := values.Len()
-		vs := make([]map[string]interface{}, len, len)
-		wg.Add(len)
-		for i := 0; i < len; i++ {
+		nums := values.Len()
+		vs := make([]map[string]interface{}, nums, nums)
+		wg.Add(nums)
+		for i := 0; i < nums; i++ {
 			go func(i int) {
 				defer wg.Done()
 				s2m, err := m(values.Index(i), authMap, "")
 				log.Println(err)
 				// vs = append(vs, s2m)
-				if s2m != nil {
+				if s2m != nil && len(s2m) != 0 {
 					vs[i] = s2m
 				}
 			}(i)
