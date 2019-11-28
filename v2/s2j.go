@@ -29,6 +29,7 @@ func Marshal(objects interface{}, auth s2j.AuthType) (v interface{}, err error) 
 	switch values.Kind() {
 	case reflect.Slice, reflect.Array:
 		var wg sync.WaitGroup
+		var l sync.Mutex
 		nums := values.Len()
 		vs := make([]map[string]interface{}, 0, nums)
 		wg.Add(nums)
@@ -42,7 +43,9 @@ func Marshal(objects interface{}, auth s2j.AuthType) (v interface{}, err error) 
 					return
 				}
 				if s2m != nil && len(s2m) != 0 {
+					l.Lock()
 					vs = append(vs, s2m)
+					l.Unlock()
 				}
 			}(i)
 		}
