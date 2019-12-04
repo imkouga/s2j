@@ -78,8 +78,9 @@ func m(object reflect.Value, auth map[string]bool, preTag string) (v map[string]
 			if len(tag) == 0 {
 				return nil, s2j.InvalidObjects{Msg: "struct tag must be required."}
 			}
+			tags := strings.Split(tag, ",")
 
-			tagKey := strings.TrimLeft(fmt.Sprintf("%s.%s", preTag, tag), ".")
+			tagKey := strings.TrimLeft(fmt.Sprintf("%s.%s", preTag, tags[0]), ".")
 			field := object.Field(i)
 			if field.Kind() == reflect.Ptr {
 				field = field.Elem()
@@ -203,8 +204,9 @@ func dfsBuildAuth(authMap map[string]bool, curTag string, value reflect.Value) (
 		if len(tag) == 0 {
 			return s2j.InvalidAuthType{Msg: "无效的Auth对象，其结构体的Tag标签必须提供json标签"}
 		}
+		tags := strings.Split(tag, ",")
 
-		dfsBuildAuth(authMap, strings.TrimLeft(fmt.Sprintf("%s.%s", curTag, tag), "."), value.Field(i))
+		dfsBuildAuth(authMap, strings.TrimLeft(fmt.Sprintf("%s.%s", curTag, tags[0]), "."), value.Field(i))
 	}
 
 	return nil
