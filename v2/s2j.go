@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"os"
@@ -12,9 +13,33 @@ import (
 	"github.com/imkouga/s2j"
 )
 
-// Marshal return a string.
+//type S2j struct {
+//	valueBigMap map[string]string //一个大的 map ，记录需要数据鉴权的数据字段的 tag
+//	valueBigMapLock sync.Mutex
+//}
+//
+//func (tj *S2j)setValueBigMap(key, value string) {
+//	tj.valueBigMapLock.Lock()
+//	tj.valueBigMap[key] = value
+//	tj.valueBigMapLock.Unlock()
+//}
+//
+//func GetValueBigMap(key string) (value string, ok bool) {
+//	tj.valueBigMapLock.Lock()
+//	if _, ok = valueBigMap[key]; !ok {
+//		tj.valueBigMapLock.Unlock()
+//		return "", ok
+//	}
+//
+//	value = valueBigMap[key]
+//	valueBigMapLock.Unlock()
+//
+//	return value, true
+//}
+
+// Marshal return a big map.
 func Marshal(objects interface{}, auth s2j.AuthType) (v interface{}, err error) {
-	authMap, err := buildAuth(auth)
+	authMap, authTagMap, err := buildAuth(auth)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +61,7 @@ func Marshal(objects interface{}, auth s2j.AuthType) (v interface{}, err error) 
 		for i := 0; i < nums; i++ {
 			go func(i int) {
 				defer wg.Done()
-				s2m, err := m(values.Index(i), authMap, "")
+				s2m, err := m(values.Index(i), authMap, authTagMap, "")
 				if err != nil {
 					log.Printf("数据鉴权出错。错误原因:%s", err.Error())
 
@@ -54,7 +79,7 @@ func Marshal(objects interface{}, auth s2j.AuthType) (v interface{}, err error) 
 		return vs, nil
 
 	case reflect.Struct:
-		s2m, err := m(values, authMap, "")
+		s2m, err := m(values, authMap, authTagMap, "")
 		return s2m, err
 
 	default:
@@ -63,7 +88,7 @@ func Marshal(objects interface{}, auth s2j.AuthType) (v interface{}, err error) 
 	}
 }
 
-func m(object reflect.Value, auth map[string]bool, preTag string) (v map[string]interface{}, err error) {
+func m(object reflect.Value, auth map[string]bool, authTag map[string]string, preName string) (v map[string]interface{}, err error) {
 	if object.Kind() == reflect.Ptr {
 		object = object.Elem()
 	}
@@ -73,15 +98,19 @@ func m(object reflect.Value, auth map[string]bool, preTag string) (v map[string]
 		v = make(map[string]interface{})
 		num := object.NumField()
 		t := object.Type()
+		var (
+			buf bytes.Buffer
+		)
+		buf.Grow(40)
 		for i := 0; i < num; i++ {
-			tag := t.Field(i).Tag.Get("json")
-			if len(tag) == 0 {
-				return nil, s2j.InvalidObjects{Msg: "struct tag must be required."}
+			buf.Reset()
+			if len(preName) != 0 {
+				buf.WriteString(preName)
+				buf.WriteString(".")
 			}
-			tags := strings.Split(tag, ",")
-			tag = tags[0]
+			buf.WriteString(t.Field(i).Name)
+			curPathName := buf.String()
 
-			tagKey := strings.TrimLeft(fmt.Sprintf("%s.%s", preTag, tag), ".")
 			field := object.Field(i)
 			if field.Kind() == reflect.Ptr {
 				field = field.Elem()
@@ -92,18 +121,32 @@ func m(object reflect.Value, auth map[string]bool, preTag string) (v map[string]
 				childLen := field.Len()
 				vv := make([]map[string]interface{}, 0, childLen)
 				isNull := true
+				var (
+					wgii   sync.WaitGroup
+					wglock sync.Mutex
+				)
+				wgii.Add(childLen)
 				for ii := 0; ii < childLen; ii++ {
-					s2m, err := m(field.Index(ii), auth, tagKey)
-					if err != nil {
-						return nil, err
-					}
-					if s2m != nil && len(s2m) != 0 {
-						isNull = false
-						vv = append(vv, s2m)
-					}
+					go func(ii int) {
+						defer wgii.Done()
+						s2m, err := m(field.Index(ii), auth, authTag, curPathName)
+						if err != nil {
+							log.Printf("数据权限执行有误。%s", err.Error())
+						}
+						if s2m != nil && len(s2m) != 0 {
+							isNull = false
+							wglock.Lock()
+							vv = append(vv, s2m)
+							wglock.Unlock()
+						}
+					}(ii)
 				}
+				wgii.Wait()
+
 				if !isNull {
-					v[tag] = vv
+					if _, found := authTag[curPathName]; found {
+						v[authTag[curPathName]] = vv
+					}
 				}
 
 			case reflect.Bool:
@@ -115,30 +158,38 @@ func m(object reflect.Value, auth map[string]bool, preTag string) (v map[string]
 			case reflect.Float32, reflect.Float64:
 				fallthrough
 			case reflect.String:
-				if _, found := auth[tagKey]; found && auth[tagKey] {
-					v[tag] = field.Interface()
+				if _, found := auth[curPathName]; found && auth[curPathName] {
+					if _, found := authTag[curPathName]; found {
+						v[authTag[curPathName]] = field.Interface()
+					}
 				}
 
 			case reflect.Struct:
 				switch field.Interface().(type) {
 				case time.Time, *time.Time:
-					if _, found := auth[tagKey]; found && auth[tagKey] {
-						v[tag] = field.Interface()
+					if _, found := auth[curPathName]; found && auth[curPathName] {
+						if _, found := authTag[curPathName]; found {
+							v[authTag[curPathName]] = field.Interface()
+						}
 					}
 
 				default:
-					s2m, err := m(field, auth, tagKey)
+					s2m, err := m(field, auth, authTag, curPathName)
 					if err != nil {
 						return nil, err
 					}
 					if s2m != nil && len(s2m) != 0 {
-						v[tag] = s2m
+						if _, found := authTag[curPathName]; found {
+							v[authTag[curPathName]] = s2m
+						}
 					}
 				}
 
 			default:
-				if _, found := auth[tagKey]; found && auth[tagKey] {
-					v[tag] = nil
+				if _, found := auth[curPathName]; found && auth[curPathName] {
+					if _, found := authTag[curPathName]; found {
+						v[authTag[curPathName]] = nil
+					}
 				}
 			}
 		}
@@ -163,27 +214,39 @@ func m(object reflect.Value, auth map[string]bool, preTag string) (v map[string]
 //	D *test11Auth `json:"d"`
 //}
 //构建完得出
-// map["a"] = true
-// map["b"] = true
-// map["c.a"] = true
-// map["c.b"] = true
-// map["d.a"] = true
-// map["d.b"] = true
-func buildAuth(auth s2j.AuthType) (map[string]bool, error) {
-	authMap := make(map[string]bool)
-	value := reflect.ValueOf(auth)
-	err := dfsBuildAuth(authMap, "", value)
+// map["A"] = true
+// map["B"] = true
+// map["C.A"] = true
+// map["C.B"] = true
+// map["D.A"] = true
+// map["D.B"] = true
 
-	return authMap, err
+// map["A"] = a
+// map["B"] = b
+// map["C.A"] = a
+// map["C.B"] = b
+// map["D.A"] = a
+// map["D.B"] = b
+func buildAuth(auth s2j.AuthType) (map[string]bool, map[string]string, error) {
+	authMap := make(map[string]bool)
+	authTagMap := make(map[string]string)
+	value := reflect.ValueOf(auth)
+	err := dfsBuildAuth(authMap, authTagMap, "", "", value)
+
+	return authMap, authTagMap, err
 }
 
-func dfsBuildAuth(authMap map[string]bool, curTag string, value reflect.Value) (err error) {
+func dfsBuildAuth(authMap map[string]bool, authTagMap map[string]string, namePath string, curTag string, value reflect.Value) (err error) {
 	if value.Kind() == reflect.Ptr {
 		value = value.Elem()
 	}
 
 	if value.Kind() != reflect.Bool && value.Kind() != reflect.Struct {
 		return s2j.InvalidAuthType{Msg: fmt.Sprintf("无效的Auth 对象，其字段类型必须是布尔类型或者结构体类型 - %d", value.Kind())}
+	}
+
+	if len(namePath) != 0 {
+		authTagMap[namePath] = curTag
 	}
 
 	if value.Kind() == reflect.Bool {
@@ -193,22 +256,35 @@ func dfsBuildAuth(authMap map[string]bool, curTag string, value reflect.Value) (
 		if authBool, ok = auth.(bool); !ok {
 			return s2j.InvalidAuthType{Msg: "无效的Auth对象，其字段值必须是布尔类型"}
 		}
-		authMap[curTag] = authBool
+		authMap[namePath] = authBool
 
 		return nil
 	}
 
 	nums := value.NumField()
 	t := value.Type()
+	var buf bytes.Buffer
+	buf.Grow(40)
 	for i := 0; i < nums; i++ {
 		tag := t.Field(i).Tag.Get("json")
 		if len(tag) == 0 {
 			return s2j.InvalidAuthType{Msg: "无效的Auth对象，其结构体的Tag标签必须提供json标签"}
 		}
-		tags := strings.Split(tag, ",")
-		tag = tags[0]
 
-		dfsBuildAuth(authMap, strings.TrimLeft(fmt.Sprintf("%s.%s", curTag, tag), "."), value.Field(i))
+		tagIndex := strings.Index(tag, ",")
+		if tagIndex == -1 {
+			tagIndex = len(tag)
+		}
+
+		tag = tag[0:tagIndex]
+
+		if len(namePath) != 0 {
+			buf.WriteString(namePath)
+			buf.WriteString(".")
+		}
+		buf.WriteString(t.Field(i).Name)
+		dfsBuildAuth(authMap, authTagMap, buf.String(), tag, value.Field(i))
+		buf.Reset()
 	}
 
 	return nil

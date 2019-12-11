@@ -97,10 +97,11 @@ func TestBuildAuth(t *testing.T) {
 		E: true,
 	}
 
-	authMap, err := buildAuth(auth)
+	authMap, authTagMap, err := buildAuth(auth)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	t.Logf("%v", authMap)
+	t.Logf("%v", authTagMap)
 }
