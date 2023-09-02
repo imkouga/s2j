@@ -7,7 +7,6 @@ import (
 	"os"
 	"reflect"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/imkouga/s2j"
@@ -53,28 +52,17 @@ func Marshal(objects interface{}, auth s2j.AuthType) (v interface{}, err error) 
 
 	switch values.Kind() {
 	case reflect.Slice, reflect.Array:
-		var wg sync.WaitGroup
-		var l sync.Mutex
 		nums := values.Len()
 		vs := make([]map[string]interface{}, 0, nums)
-		wg.Add(nums)
 		for i := 0; i < nums; i++ {
-			go func(i int) {
-				defer wg.Done()
-				s2m, err := m(values.Index(i), authMap, authTagMap, "")
-				if err != nil {
-					log.Printf("数据鉴权出错。错误原因:%s", err.Error())
-
-					return
-				}
-				if s2m != nil && len(s2m) != 0 {
-					l.Lock()
-					vs = append(vs, s2m)
-					l.Unlock()
-				}
-			}(i)
+			s2m, err := m(values.Index(i), authMap, authTagMap, "")
+			if err != nil {
+				return nil, err
+			}
+			if len(s2m) > 0 {
+				vs = append(vs, s2m)
+			}
 		}
-		wg.Wait()
 
 		return vs, nil
 
@@ -121,27 +109,16 @@ func m(object reflect.Value, auth map[string]bool, authTag map[string]string, pr
 				childLen := field.Len()
 				vv := make([]map[string]interface{}, 0, childLen)
 				isNull := true
-				var (
-					wgii   sync.WaitGroup
-					wglock sync.Mutex
-				)
-				wgii.Add(childLen)
 				for ii := 0; ii < childLen; ii++ {
-					go func(ii int) {
-						defer wgii.Done()
-						s2m, err := m(field.Index(ii), auth, authTag, curPathName)
-						if err != nil {
-							log.Printf("数据权限执行有误。%s", err.Error())
-						}
-						if s2m != nil && len(s2m) != 0 {
-							isNull = false
-							wglock.Lock()
-							vv = append(vv, s2m)
-							wglock.Unlock()
-						}
-					}(ii)
+					s2m, err := m(field.Index(ii), auth, authTag, curPathName)
+					if err != nil {
+						return nil, err
+					}
+					if len(s2m) > 0 {
+						isNull = false
+						vv = append(vv, s2m)
+					}
 				}
-				wgii.Wait()
 
 				if !isNull {
 					if _, found := authTag[curPathName]; found {

@@ -23,7 +23,7 @@ func TestAuth(t *testing.T) {
 	ll := []lll{lll{Aa: "454", Bb: "444"}}
 	llAuth := lllAuth{Aa: true, Bb: true}
 
-	json, err := v1.Marshal(ll, llAuth)
+	_, err := v1.Marshal(ll, llAuth)
 	if err != nil {
 		t.Fatalf("marshal failed. err is %s", err.Error())
 	}
